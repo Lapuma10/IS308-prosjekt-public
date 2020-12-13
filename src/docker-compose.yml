@@ -1,0 +1,108 @@
+version: '3'
+services:
+  # RABBIT MQ SERVICE
+  rabbit1:
+    image: "rabbitmq:3-management"
+    hostname: "rabbit1"
+    environment:
+      RABBITMQ_ERLANG_COOKIE: "SWQOKODSQALRPCLNMEQG"
+      RABBITMQ_DEFAULT_USER: "guest"
+      RABBITMQ_DEFAULT_PASS: "guest"
+      RABBITMQ_DEFAULT_VHOST: "/"
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+    labels:
+      NAME: "rabbitmq1"
+    healthcheck:
+      test: [ "CMD", "nc", "-z", "localhost", "5672" ]
+      interval: 5s
+      timeout: 15s
+      retries: 1
+    container_name: rabbitMQ
+  # CRONJOB SERVICE
+  cronjobber:
+    build: ./cronjobber/.
+    restart: on-failure
+    depends_on:
+      - rabbit1
+    container_name: cronjobber
+  # ORDER-UPDATER SERVICE
+  order-updater:
+    build: ./order-updater/.
+    restart: on-failure
+    depends_on:
+      - rabbit1
+    container_name: order-updater
+    volumes:
+      - ./order-updater:/var
+  # LOG DB
+  log-db:
+    build:
+      context: ./log-db
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: test_db
+      MYSQL_USER: docker
+      MYSQL_PASSWORD: docker
+    container_name: log-db
+    ports:
+      - "6666:3306"
+    tty: true
+  #USER-UPDATER SERVICE
+  user-updater:
+    build: ./user-updater/.
+    restart: on-failure
+    depends_on:
+      - rabbit1
+    container_name: user-updater
+    volumes:
+     - ./user-updater:/var
+  # LOGGING SERVICE
+  log-app:
+    build:
+      context: ./logger
+    volumes:
+      - "./logger:/go"
+    container_name: golang_app
+    tty: true
+    restart: on-failure
+    depends_on:
+      - rabbit1
+      - log-db
+    container_name: logger
+  # PHP WEB SERVICE
+  web:
+    build:
+      context: ./web-service
+      dockerfile: container-build/web/Dockerfile
+    environment:
+    - MYSQL_DATABASE=neo
+    - MYSQL_USER=bacit
+    - MYSQL_PASSWORD=BACIT2020
+    - MYSQL_HOST=db
+    ports:
+    - "8081:80"
+    volumes:
+    - ./web-service:/var/www
+    depends_on:
+    - web-db
+    container_name: web
+  # WEB SERVICE DB
+  web-db:
+    image: mysql:5.7
+    ports:
+    - "6603:3306"
+    environment:
+    - MYSQL_ROOT_PASSWORD=BSBACIT2020
+    - MYSQL_USER=dbuser
+    - MYSQL_PASSWORD=BACIT2020
+    - MYSQL_DATABASE=neo
+    volumes:
+    - "./web-service/db.sql:/docker-entrypoint-initdb.d/1.sql"
+    - "./web-service/populate.sql:/docker-entrypoint-initdb.d/2.sql"
+    container_name: web-db
+
+
+volumes:
+  mysql_data: { driver: local }

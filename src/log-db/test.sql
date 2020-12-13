@@ -1,0 +1,10 @@
+CREATE DATABASE IF NOT EXISTS test_db;
+
+Use test_db;
+
+Create table `log` (
+  id INTEGER AUTO_INCREMENT PRIMARY KEY NOT NULL,
+  description varchar(255) NOT NULL,
+  log_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  userID INTEGER
+);
